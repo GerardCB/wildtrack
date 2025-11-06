@@ -18,9 +18,21 @@ It combines [MegaDetector](https://github.com/agentmorris/MegaDetector) and [SAM
 
 ### Installation
 
+#### Option 1 – For Users (Recommended)
+
+Use WildTrack directly without downloading the source code:
+
+```bash
+pip install git+https://github.com/GerardCB/wildtrack.git
+```
+
+#### Option 2 – For Developers
+
+If you plan to edit or contribute to the code:
+
 ```bash
 # Clone repository
-git clone https://github.com/gerardcalvobartra/wildtrack.git
+git clone https://github.com/GerardCB/wildtrack.git
 cd wildtrack
 
 # Install dependencies
