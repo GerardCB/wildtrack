@@ -3,6 +3,11 @@
 **WildTrack** is an open-source pipeline for wildlife detection, segmentation, and tracking in videos.
 It combines [MegaDetector](https://github.com/agentmorris/MegaDetector) and [SAM 2](https://github.com/facebookresearch/sam2) into a unified incremental workflow that automatically finds, segments, and follows individual animals across frames — even with camera movement, occlusions, or multiple individuals.
 
+<p align="center">
+  <img src="demo.gif" alt="WildTrack tracking elephants" width="720"/><br>
+  <em>Example: WildTrack automatically detects, segments, and tracks elephants across video frames, even with camera moves!</em>
+</p>
+
 ---
 
 ## 🔗 Why WildTrack?
@@ -102,4 +107,3 @@ WildTrack builds on the incredible work by:
 
 * [Microsoft AI for Earth](https://github.com/microsoft/CameraTraps) — MegaDetector
 * [Meta AI Research](https://github.com/facebookresearch/sam2) — Segment Anything 2
-
