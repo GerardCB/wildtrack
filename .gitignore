@@ -1,0 +1,23 @@
+# outputs & temp
+outputs/
+**/debug/
+*.mp4
+*.pkl
+*.json
+
+# python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.build/
+dist/
+
+# OS/editor
+.DS_Store
+.idea/
+.vscode/
+
+# caches
+.cache/
+.huggingface/

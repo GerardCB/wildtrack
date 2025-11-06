@@ -1,0 +1,27 @@
+[project]
+name = "wildtrack"
+version = "0.1.0"
+description = "Open-source video wildlife detection, segmentation, and tracking pipeline built on MegaDetector and SAM2."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { file = "LICENSE" }
+authors = [{ name = "Gerard Calvo Bartra", email = "gerard@xeroth.ai" }]
+dependencies = [
+  "opencv-python>=4.8",
+  "numpy>=1.24",
+  "torch>=2.5.1",
+  "torchvision>=0.20.1",
+  "tqdm>=4.66",
+  "huggingface_hub>=0.24",
+  "megadetector>=5.0.29,<6",
+  "sam2>=1.1.0",
+]
+
+[project.scripts]
+wildtrack = "wildtrack.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools]
+package-dir = { "" = "src" }
