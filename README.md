@@ -18,7 +18,7 @@ It combines [MegaDetector](https://github.com/agentmorris/MegaDetector) and [SAM
 
 ### Installation
 
-#### Option 1 – For Users (Recommended)
+#### Option 1 – For Users
 
 Use WildTrack directly without downloading the source code:
 
