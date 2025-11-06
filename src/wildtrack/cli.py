@@ -68,10 +68,10 @@ def main():
         help="Enable visualization output (writes an annotated MP4 under outputs/<clip>/debug/)."
     )
     ap.add_argument(
-        "--viz", dest="viz_mode", choices=["fast", "original"], default="fast",
+        "--viz", dest="viz_mode", choices=["fast", "original"], default="original",
         help="Visualization mode when --debug is set: "
              "'fast' overlays on decimated JPEGs (very fast), "
-             "'original' overlays on original video (best quality, slower). Default: fast"
+             "'original' overlays on original video (best quality, slower). Default: original"
     )
 
     # Post-processing (merge duplicate tracks)

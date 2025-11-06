@@ -72,7 +72,7 @@ Outputs will be saved in `./outputs/<video_name>/`, including:
 |                                | `--max_side`          | `720`        | Resize frames so max(H,W)=this before SAM2 export.                                          |
 |                                | `--frame_stride`      | `2`          | Frame decimation stride for SAM2 and visualization (every Nth frame → one JPEG).            |
 | **Visualization**              | `--debug`             | *(flag)*     | Enable visualization output (annotated MP4 under `outputs/<clip>/debug/`).                  |
-|                                | `--viz` | `fast`       | Visualization mode: `fast` overlays on decimated frames; `original` overlays on full video (better quality, slower). |
+|                                | `--viz` | `original`       | Visualization mode: `fast` overlays on decimated frames; `original` overlays on full video (better quality, slower). |
 | **Post-processing (Merging)**  | `--no_merge`          | *(flag)*     | Disable duplicate-track merging (keep all tracks).                                          |
 |                                | `--merge_iou`         | `0.4`        | IoU threshold for merging duplicate tracks.                                                 |
 |                                | `--merge_min_frames`  | `3`          | Minimum overlapping frames required to compare for merging.                                 |
