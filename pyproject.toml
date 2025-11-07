@@ -1,6 +1,6 @@
 [project]
 name = "wildtrack"
-version = "0.1.0"
+version = "0.3.0"
 description = "Open-source video wildlife detection, segmentation, and tracking pipeline built on MegaDetector and SAM2."
 readme = "README.md"
 requires-python = ">=3.11"
