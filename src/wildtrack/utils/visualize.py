@@ -48,12 +48,21 @@ def visualize_result(
         if not vw.isOpened():
             print(f"⚠️  Failed to create video writer for {out_path}"); return
 
-        # Iterate only decimated indices we actually have
-        max_idx = max(by_frame.keys()) if by_frame else -1
-        for dec_idx in range(0, max_idx + 1):
+        # Count total decimated frames from jpeg folder
+        jpeg_files = sorted([f for f in os.listdir(jpeg_folder) if f.endswith('.jpg')])
+        total_decimated_frames = len(jpeg_files)
+        
+        if total_decimated_frames == 0:
+            print("⚠️  No JPEG frames found in decimated folder.")
+            vw.release()
+            return
+
+        # Iterate through all decimated frames (not just those with detections)
+        for dec_idx in range(total_decimated_frames):
             jpg_path = os.path.join(jpeg_folder, f"{dec_idx:06d}.jpg")
             frame = cv2.imread(jpg_path)
             if frame is None:
+                print(f"⚠️  Could not read frame {jpg_path}")
                 break
 
             rec = by_frame.get(dec_idx)
@@ -87,6 +96,7 @@ def visualize_result(
                                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255,255,255), 2, cv2.LINE_AA)
 
                 frame = np.clip(frame_f, 0, 255).astype(np.uint8)
+            # else: no detections for this frame, write plain frame
 
             vw.write(frame)
 
@@ -145,6 +155,7 @@ def visualize_result(
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255,255,255), 2, cv2.LINE_AA)
 
             frame = np.clip(frame_f, 0, 255).astype(np.uint8)
+        # else: no detections for this frame, write plain frame
 
         vw.write(frame)
         fi += 1
