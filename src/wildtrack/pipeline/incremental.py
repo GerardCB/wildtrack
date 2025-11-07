@@ -178,7 +178,7 @@ def run_incremental(video_path: str,
         if boxes_xyxy.shape[0]==0:
             print("  No animals detected.\n")
             continue
-        print(f"  MegaDetector found {boxes_xyxy.shape[0]} animal(s)")
+        print(f"  {detector.__class__.__name__} found {boxes_xyxy.shape[0]} animal(s)")
 
         dec_idx = orig_idx // frame_stride
 
