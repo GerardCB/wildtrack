@@ -5,10 +5,11 @@ os.environ.setdefault("TORCHINDUCTOR_DISABLE", "1")
 import argparse
 import tempfile
 import shutil
+import sys
 
 from .devices import pick_device
 from .utils.video import export_video_to_jpeg_folder
-from .detectors.megadetector import MegaDetectorV5
+from .detectors import get_detector, list_detectors, get_available_detectors
 from .segmenters.sam2_segmenter import SAM2Segmenter
 from .pipeline.incremental import run_incremental
 
@@ -16,14 +17,20 @@ from .pipeline.incremental import run_incremental
 def main():
     ap = argparse.ArgumentParser(
         "wildtrack",
-        description="WildTrack: wildlife detection, segmentation, and tracking using MegaDetector and SAM2.",
+        description="WildTrack: wildlife detection, segmentation, and tracking using customizable detectors and SAM2.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+
+    # Special command: list detectors
+    ap.add_argument(
+        "--list-detectors", action="store_true",
+        help="List all available detectors and exit"
     )
 
     # ==================== INPUT/OUTPUT ====================
     io_group = ap.add_argument_group('Input/Output')
     io_group.add_argument(
-        "--video", "-v", required=True,
+        "--video", "-v",
         help="Path to input video file (e.g., examples/elephants.mp4)"
     )
     io_group.add_argument(
@@ -33,6 +40,12 @@ def main():
 
     # ==================== DETECTION ====================
     detect_group = ap.add_argument_group('Detection Settings')
+    detect_group.add_argument(
+        "--detector", type=str, default="megadetector-v5",
+        choices=get_available_detectors(),
+        help="Detection model to use (default: megadetector-v5). "
+             "Run --list-detectors to see all options."
+    )
     detect_group.add_argument(
         "--confidence", "-c", type=float, default=0.40,
         help="Minimum confidence threshold for animal detection (default: 0.40)"
@@ -71,7 +84,7 @@ def main():
     output_group.add_argument(
         "--visualize", type=str, default="none",
         choices=["none", "fast", "high-quality"],
-        help="Generate annotated video: 'none' (no video), 'fast' (quick low-res preview), "
+        help="Generate annotated video: 'none' (no video), 'fast' (quick preview), "
              "'high-quality' (overlay on original frames, slower) (default: none)"
     )
 
@@ -91,6 +104,16 @@ def main():
     )
 
     args = ap.parse_args()
+
+    # Handle --list-detectors command
+    if args.list_detectors:
+        list_detectors(verbose=True)
+        sys.exit(0)
+
+    # Validate required arguments
+    if not args.video:
+        ap.error("--video is required (unless using --list-detectors)")
+
     device = pick_device(args.device)
 
     # Determine if visualization is needed
@@ -108,8 +131,15 @@ def main():
     )
 
     try:
-        # 2) Initialize detector and segmenter
-        detector = MegaDetectorV5(conf_thresh=args.confidence, animals_only=True)
+        # 2) Initialize detector from registry
+        print(f"Loading detector: {args.detector}")
+        detector = get_detector(
+            args.detector,
+            conf_thresh=args.confidence,
+            animals_only=True  # Can be made configurable later
+        )
+        
+        # 3) Initialize segmenter
         segmenter = SAM2Segmenter(
             jpeg_folder=jpeg_folder,
             device=device,
@@ -117,7 +147,7 @@ def main():
             apply_post=not args.skip_postprocessing,
         )
 
-        # 3) Run pipeline
+        # 4) Run pipeline
         run_incremental(
             video_path=args.video,
             detector=detector,
