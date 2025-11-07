@@ -165,10 +165,15 @@ def run_incremental(video_path: str,
     next_obj_id = 0
     detection_summary: List[Dict[str,Any]] = []
 
-    detection_frames = list(range(0, total_frames, detection_stride))
+    safe_last = max(0, (total_frames - 1))
+    detection_frames = list(range(0, safe_last, detection_stride))
     for k, orig_idx in enumerate(detection_frames, 1):
         print(f"[{k}/{len(detection_frames)}] Detection frame: {orig_idx}/{total_frames}")
-        frame = read_frame_at_index(video_path, orig_idx)
+        try:
+            frame = read_frame_at_index(video_path, orig_idx)
+        except RuntimeError as e:
+            print(f"  ⚠️  Skipping unreadable frame {orig_idx}: {e}")
+            continue
         boxes_xyxy, scores, classes = detector.detect_bgr(frame)
         if boxes_xyxy.shape[0]==0:
             print("  No animals detected.\n")
