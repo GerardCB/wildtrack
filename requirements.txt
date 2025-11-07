@@ -4,5 +4,5 @@ torch>=2.5.1
 torchvision>=0.20.1
 tqdm>=4.66
 huggingface_hub>=0.24
-megadetector>=5.0.29,<6
+megadetector>=5.0.29
 sam2>=1.1.0
