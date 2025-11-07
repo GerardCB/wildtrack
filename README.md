@@ -47,12 +47,12 @@ pip install -e .
 ### Run on a video
 
 ```bash
-wildtrack --video path/to/video_name.mp4 --debug
+wildtrack --video path/to/video_name.mp4 --visualize high-quality
 ```
 
 Outputs will be saved in `./outputs/<video_name>/`, including:
 
-* **masks_preview.mp4** — video of detected animals with painted masks (only if using --debug)
+* **masks_preview.mp4** — video of detected animals with painted masks (only if `--visualize` is not `none`)
 * **<video_name>_metadata.json** — summary of detections, frames, merges
 * **<video_name>_masks.pkl** — serialized SAM2 outputs and masks
 
@@ -60,22 +60,62 @@ Outputs will be saved in `./outputs/<video_name>/`, including:
 
 ## 🔧 CLI Options
 
-| **Category**                   | **Argument**          | **Default**  | **Description**                                                                             |
-| ------------------------------ | --------------------- | ------------ | ------------------------------------------------------------------------------------------- |
-| **I/O**                        | `--video`             | *(required)* | Path to input video file (e.g. `examples/djuma_zebras.mp4`).                                |
-|                                | `--out_dir`           | `outputs`    | Directory to write results (`masks.pkl`, `metadata.json`, `visualization.mp4`).             |
-| **Detection (MegaDetector)**   | `--detector_conf`     | `0.40`       | Confidence threshold for animal detection.                                                  |
-|                                | `--detection_stride`  | `10`         | Run MegaDetector every N original frames. Larger = faster, fewer detections.                |
-|                                | `--overlap_threshold` | `0.3`        | IoU threshold (box vs existing masks) to consider an animal already tracked.                |
-| **SAM2 / Device / Decimation** | `--device`            | `auto`       | Compute device: `cpu`, `mps`, `cuda`, or `auto` (prefers GPU if available).                 |
-|                                | `--no_post`           | *(flag)*     | Disable SAM2 post-processing.                     |
-|                                | `--max_side`          | `720`        | Resize frames so max(H,W)=this before SAM2 export.                                          |
-|                                | `--frame_stride`      | `2`          | Frame decimation stride for SAM2 and visualization (every Nth frame → one JPEG).            |
-| **Visualization**              | `--debug`             | *(flag)*     | Enable visualization output (annotated MP4 under `outputs/<clip>/debug/`).                  |
-|                                | `--viz` | `original`       | Visualization mode: `fast` overlays on decimated frames; `original` overlays on full video (better quality, slower). |
-| **Post-processing (Merging)**  | `--no_merge`          | *(flag)*     | Disable duplicate-track merging (keep all tracks).                                          |
-|                                | `--merge_iou`         | `0.4`        | IoU threshold for merging duplicate tracks.                                                 |
-|                                | `--merge_min_frames`  | `3`          | Minimum overlapping frames required to compare for merging.                                 |
+| **Category** | **Argument** | **Default** | **Description** |
+|--------------|--------------|-------------|-----------------|
+| **Input/Output** | `-v`, `--video` | *(required)* | Path to input video file |
+| | `-o`, `--output-dir` | `outputs` | Directory for output files |
+| **Detection** | `-c`, `--confidence` | `0.40` | Minimum confidence threshold for detections |
+| | `--detect-every` | `10` | Run detector every N frames (larger = faster) |
+| | `--overlap-threshold` | `0.3` | IoU threshold to consider animal already tracked |
+| **Processing** | `--device` | `auto` | Compute device: `cpu`, `mps`, `cuda`, or `auto` |
+| | `--max-resolution` | `720` | Resize frames so max dimension = N pixels (smaller = faster) |
+| | `--sample-every` | `2` | Process every Nth frame for segmentation (larger = faster)|
+| | `--skip-postprocessing` | *(flag)* | Skip SAM2 post-processing step |
+| **Visualization** | `--visualize` | `none` | Output mode: `none`, `fast` (quick preview), or `high-quality` (overlay on original) |
+| **Track Merging** | `--skip-merge` | *(flag)* | Disable automatic merging of duplicate tracks |
+| | `--merge-iou` | `0.4` | IoU threshold for merging duplicate tracks |
+| | `--merge-min-overlap` | `3` | Minimum overlapping frames to merge tracks |
+
+### Common Usage Examples
+
+```bash
+# Basic usage with quick, low-resolution video preview
+wildtrack -v elephants.mp4 --visualize fast
+
+# High-quality video output in custom directory
+wildtrack -v elephants.mp4 -o results/ --visualize high-quality
+
+# Fast processing for batch jobs (no visualization)
+wildtrack -v video.mp4 --detect-every 20
+
+# Sensitive detection for hard-to-spot animals
+wildtrack -v nocturnal.mp4 --confidence 0.25
+
+# Full control over processing
+wildtrack -v test.mp4 \
+  --confidence 0.35 \
+  --detect-every 15 \
+  --sample-every 3 \
+  --visualize high-quality \
+  --skip-merge
+```
+
+### Understanding Key Parameters
+
+**Detection vs Sampling:**
+- `--detect-every N`: How often to look for *new* animals (affects detection only)
+- `--sample-every N`: How often to process frames for *tracking* (affects segmentation quality)
+
+**Visualization Modes:**
+- `none`: No video output (fastest, for batch processing)
+- `fast`: Quick preview using processed frames (~2-5x faster)
+- `high-quality`: Overlay masks on original video (best quality, slower)
+
+**Device Selection:**
+- `auto`: Automatically picks CUDA → MPS → CPU
+- `cuda`: Force NVIDIA GPU (fastest)
+- `mps`: Force Apple Silicon GPU
+- `cpu`: Force CPU (slowest, but works everywhere)
 
 ---
 

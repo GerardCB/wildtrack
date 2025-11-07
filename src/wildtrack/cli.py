@@ -1,6 +1,6 @@
 import os
 os.environ.setdefault("TORCH_COMPILE_DISABLE", "1")
-os.environ.setdefault("TORCHINDUCTOR_DISABLE", "1")  # avoid Triton/Inductor on Apple Silicon
+os.environ.setdefault("TORCHINDUCTOR_DISABLE", "1")
 
 import argparse
 import tempfile
@@ -16,118 +16,123 @@ from .pipeline.incremental import run_incremental
 def main():
     ap = argparse.ArgumentParser(
         "wildtrack",
-        description="WildTrack: wildlife detection + segmentation + tracking from video using MegaDetector and SAM2.",
+        description="WildTrack: wildlife detection, segmentation, and tracking using MegaDetector and SAM2.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 
-    # I/O
-    ap.add_argument(
-        "--video", required=True,
-        help="Path to input video file (e.g., examples/djuma_zebras.mp4)."
+    # ==================== INPUT/OUTPUT ====================
+    io_group = ap.add_argument_group('Input/Output')
+    io_group.add_argument(
+        "--video", "-v", required=True,
+        help="Path to input video file (e.g., examples/elephants.mp4)"
     )
-    ap.add_argument(
-        "--out_dir", type=str, default="outputs",
-        help="Directory to write results (masks.pkl, metadata.json, visualization). Default: ./outputs"
-    )
-
-    # Detection (MegaDetector)
-    ap.add_argument(
-        "--detector_conf", type=float, default=0.40,
-        help="MegaDetector confidence threshold for animals. Default: 0.40"
-    )
-    ap.add_argument(
-        "--detection_stride", type=int, default=10,
-        help="Run MegaDetector every N ORIGINAL frames. Larger = faster, fewer prompts. Default: 10"
-    )
-    ap.add_argument(
-        "--overlap_threshold", type=float, default=0.3,
-        help="IoU threshold (box vs existing masks) to consider an animal as 'already tracked'. Default: 0.3"
+    io_group.add_argument(
+        "--output-dir", "-o", type=str, default="outputs",
+        help="Directory for output files (default: ./outputs)"
     )
 
-    # SAM2 / device / decimation
-    ap.add_argument(
-        "--device", type=str, default=pick_device("auto"),
+    # ==================== DETECTION ====================
+    detect_group = ap.add_argument_group('Detection Settings')
+    detect_group.add_argument(
+        "--confidence", "-c", type=float, default=0.40,
+        help="Minimum confidence threshold for animal detection (default: 0.40)"
+    )
+    detect_group.add_argument(
+        "--detect-every", type=int, default=10,
+        help="Run detector every N frames (larger = faster but may miss animals, default: 10)"
+    )
+    detect_group.add_argument(
+        "--overlap-threshold", type=float, default=0.3,
+        help="IoU threshold to consider animal already tracked (default: 0.3)"
+    )
+
+    # ==================== PROCESSING ====================
+    process_group = ap.add_argument_group('Processing Settings')
+    process_group.add_argument(
+        "--device", type=str, default="auto",
         choices=["cpu", "mps", "cuda", "auto"],
-        help="Compute device. 'auto' picks cuda > mps > cpu. Default: auto"
+        help="Compute device (default: auto - picks best available)"
     )
-    ap.add_argument(
-        "--no_post", action="store_true",
-        help="Disable SAM2 post-processing (use if you hit optional extension warnings)."
+    process_group.add_argument(
+        "--max-resolution", type=int, default=720,
+        help="Resize frames so max dimension = N pixels before processing (default: 720)"
     )
-    ap.add_argument(
-        "--max_side", type=int, default=720,
-        help="Resize frames so max(H,W)=this BEFORE SAM2/decimated export. Default: 720"
+    process_group.add_argument(
+        "--sample-every", type=int, default=2,
+        help="Process every Nth frame for SAM2 segmentation (default: 2)"
     )
-    ap.add_argument(
-        "--frame_stride", type=int, default=2,
-        help="Decimation stride for SAM2 & visualization (every Nth frame becomes one JPEG). Larger = faster, but lower quality masks. Default: 2"
-    )
-
-    # Visualization
-    ap.add_argument(
-        "--debug", action="store_true",
-        help="Enable visualization output (writes an annotated MP4 under outputs/<clip>/debug/)."
-    )
-    ap.add_argument(
-        "--viz", dest="viz_mode", choices=["fast", "original"], default="original",
-        help="Visualization mode when --debug is set: "
-             "'fast' overlays on decimated JPEGs (very fast), "
-             "'original' overlays on original video (best quality, slower). Default: original"
+    process_group.add_argument(
+        "--skip-postprocessing", action="store_true",
+        help="Skip SAM2 post-processing step (use if encountering extension errors)"
     )
 
-    # Post-processing (merge duplicate tracks)
-    ap.add_argument(
-        "--no_merge", action="store_true",
-        help="Disable the default duplicate-track merging (keep all tracks as-is)."
+    # ==================== OUTPUT/VISUALIZATION ====================
+    output_group = ap.add_argument_group('Output & Visualization')
+    output_group.add_argument(
+        "--visualize", type=str, default="none",
+        choices=["none", "fast", "high-quality"],
+        help="Generate annotated video: 'none' (no video), 'fast' (quick low-res preview), "
+             "'high-quality' (overlay on original frames, slower) (default: none)"
     )
-    ap.add_argument(
-        "--merge_iou", type=float, default=0.4,
-        help="IoU threshold for merging duplicate tracks. Default: 0.4"
+
+    # ==================== POST-PROCESSING ====================
+    merge_group = ap.add_argument_group('Track Merging')
+    merge_group.add_argument(
+        "--skip-merge", action="store_true",
+        help="Skip automatic merging of duplicate tracks"
     )
-    ap.add_argument(
-        "--merge_min_frames", type=int, default=3,
-        help="Minimum overlapping frames to compare when merging tracks. Default: 3"
+    merge_group.add_argument(
+        "--merge-iou", type=float, default=0.4,
+        help="IoU threshold for merging duplicate tracks (default: 0.4)"
+    )
+    merge_group.add_argument(
+        "--merge-min-overlap", type=int, default=3,
+        help="Minimum overlapping frames needed to merge tracks (default: 3)"
     )
 
     args = ap.parse_args()
     device = pick_device(args.device)
 
-    # 1) Export decimated JPEGs once (used by SAM2 & fast viz)
+    # Determine if visualization is needed
+    debug_vis = args.visualize != "none"
+    viz_mode = "original" if args.visualize == "high-quality" else "fast"
+
+    # 1) Export decimated JPEGs
     tmp_dir = tempfile.mkdtemp(prefix="sam2_jpegs_")
     jpeg_folder, _ = export_video_to_jpeg_folder(
         args.video,
         tmp_dir,
         quality=90,
-        max_side=args.max_side,
-        frame_stride=args.frame_stride,
+        max_side=args.max_resolution,
+        frame_stride=args.sample_every,
     )
 
     try:
-        # 2) Wire detector + segmenter
-        detector = MegaDetectorV5(conf_thresh=args.detector_conf, animals_only=True)
+        # 2) Initialize detector and segmenter
+        detector = MegaDetectorV5(conf_thresh=args.confidence, animals_only=True)
         segmenter = SAM2Segmenter(
             jpeg_folder=jpeg_folder,
             device=device,
             vos_optimized=True,
-            apply_post=not args.no_post,
+            apply_post=not args.skip_postprocessing,
         )
 
         # 3) Run pipeline
-        # Pass viz mode down via run_incremental (it will call visualize_fast with use_decimated accordingly)
         run_incremental(
             video_path=args.video,
             detector=detector,
             segmenter=segmenter,
-            detection_stride=args.detection_stride,
+            detection_stride=args.detect_every,
             overlap_iou_threshold=args.overlap_threshold,
-            frame_stride=args.frame_stride,
-            max_side=args.max_side,
-            debug_vis=args.debug,
-            out_dir=args.out_dir,
-            merge_duplicates=not args.no_merge,
+            frame_stride=args.sample_every,
+            max_side=args.max_resolution,
+            debug_vis=debug_vis,
+            out_dir=args.output_dir,
+            merge_duplicates=not args.skip_merge,
             merge_iou_threshold=args.merge_iou,
-            merge_min_frames=args.merge_min_frames,
+            merge_min_frames=args.merge_min_overlap,
             jpeg_folder=jpeg_folder,
-            viz_mode=args.viz_mode,
+            viz_mode=viz_mode,
         )
     finally:
         shutil.rmtree(tmp_dir, ignore_errors=True)
