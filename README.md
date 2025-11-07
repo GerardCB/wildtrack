@@ -1,7 +1,7 @@
 # 🐾 WildTrack
 
 **WildTrack** is an open-source pipeline for wildlife detection, segmentation, and tracking in videos.
-It combines [MegaDetector](https://github.com/agentmorris/MegaDetector) and [SAM 2](https://github.com/facebookresearch/sam2) into a unified incremental workflow that automatically finds, segments, and follows individual animals across frames — even with camera movement, occlusions, or multiple individuals.
+It combines your choice of wildlife detection models with [SAM 2](https://github.com/facebookresearch/sam2) into a unified incremental workflow that automatically finds, segments, and follows individual animals across frames — even with camera movement, occlusions, or multiple individuals.
 
 <p align="center">
   <img src="demo.gif" alt="WildTrack tracking elephants" width="720"/><br>
@@ -12,11 +12,11 @@ It combines [MegaDetector](https://github.com/agentmorris/MegaDetector) and [SAM
 
 ## 🔗 Why WildTrack?
 
-* **Incremental Detection & Tracking** — intelligently adds new animals only when they appear.
-* **Modular Architecture** — easily swap detectors or segmenters.
-* **Optimized Performance** — supports CUDA, MPS, and CPU out of the box.
-* **Lightweight CLI** — process videos with a single command.
-
+* **Flexible Detection** — choose from multiple models (MegaDetector, Community Fish Detector, or bring your own)
+* **Incremental Tracking** — intelligently adds new animals only when they appear
+* **High-Quality Segmentation** — SAM2-powered masks for precise individual tracking
+* **Hardware Optimized** — supports CUDA, MPS, and CPU out of the box
+* **Simple CLI** — process videos with a single command
 ---
 
 ## 🚀 Quickstart
@@ -58,13 +58,47 @@ Outputs will be saved in `./outputs/<video_name>/`, including:
 
 ---
 
+## 🔍 Detector Support
+
+WildTrack supports multiple detection models. Choose the best detector for your use case:
+
+```bash
+# List available detectors
+wildtrack --list-detectors
+
+# Use specific detector
+wildtrack -v video.mp4 --detector megadetector-v5 --visualize fast
+```
+
+### Available Detectors
+
+| Detector | Best For | Notes |
+|----------|----------|-------|
+| `megadetector-v5` | Terrestrial wildlife, camera traps | Default detector |
+| `community-fish` | Underwater footage, marine life | Requires to [pip install ultralytics](https://pypi.org/project/ultralytics/) |
+
+### Examples
+
+```bash
+# Terrestrial wildlife (default)
+wildtrack -v safari.mp4 --visualize fast
+
+# Underwater/marine life
+wildtrack -v reef.mp4 --detector community-fish --visualize fast
+```
+
+Want to add your own detector? See our [detector contribution guide](docs/ADDING_DETECTORS.md)!
+
+---
+
 ## 🔧 CLI Options
 
 | **Category** | **Argument** | **Default** | **Description** |
 |--------------|--------------|-------------|-----------------|
 | **Input/Output** | `-v`, `--video` | *(required)* | Path to input video file |
 | | `-o`, `--output-dir` | `outputs` | Directory for output files |
-| **Detection** | `-c`, `--confidence` | `0.40` | Minimum confidence threshold for detections |
+| **Detection** | `--detector` | `megadetector-v5` | Detection model to use (run `--list-detectors` for options) |
+| | `-c`, `--confidence` | `0.40` | Minimum confidence threshold for detections |
 | | `--detect-every` | `10` | Run detector every N frames (larger = faster) |
 | | `--overlap-threshold` | `0.3` | IoU threshold to consider animal already tracked |
 | **Processing** | `--device` | `auto` | Compute device: `cpu`, `mps`, `cuda`, or `auto` |
@@ -82,6 +116,9 @@ Outputs will be saved in `./outputs/<video_name>/`, including:
 # Basic usage with quick, low-resolution video preview
 wildtrack -v elephants.mp4 --visualize fast
 
+# Underwater fish detection
+wildtrack -v reef_dive.mp4 --detector community-fish --visualize fast
+
 # High-quality video output in custom directory
 wildtrack -v elephants.mp4 -o results/ --visualize high-quality
 
@@ -93,8 +130,9 @@ wildtrack -v nocturnal.mp4 --confidence 0.25
 
 # Full control over processing
 wildtrack -v test.mp4 \
+  --detector megadetector-v5 \
   --confidence 0.35 \
-  --detect-every 15 \
+  --detect-every 20 \
   --sample-every 3 \
   --visualize high-quality \
   --skip-merge
@@ -123,7 +161,7 @@ wildtrack -v test.mp4 \
 
 ```
 src/wildtrack/
-├── detectors/        # MegaDetector wrapper
+├── detectors/        # Detection models (MegaDetector, Community Fish, etc.)
 ├── segmenters/       # SAM2 wrapper
 ├── pipeline/         # incremental detection logic & orchestration
 ├── utils/            # video, masks, visualization utilities
@@ -147,3 +185,4 @@ WildTrack builds on the incredible work by:
 
 * [Microsoft AI for Earth](https://github.com/microsoft/CameraTraps) — MegaDetector
 * [Meta AI Research](https://github.com/facebookresearch/sam2) — Segment Anything 2
+* [WildHackers Community](https://github.com/WildHackers/community-fish-detector) — Community Fish Detector

@@ -3,11 +3,15 @@ Copyright (c) 2025 Gerard Calvo Bartra
 
 This software makes use of the following open-source components:
 
-- MegaDetector (Microsoft AI for Earth) — MIT License  
+- **MegaDetector (Microsoft AI for Earth)** — MIT License  
   https://github.com/agentmorris/MegaDetector  
 
-- Segment Anything Model 2 (SAM2) — Apache License 2.0  
-  https://github.com/facebookresearch/segment-anything-2  
+- **Segment Anything Model 2 (SAM2)** — Apache License 2.0  
+  https://github.com/facebookresearch/segment-anything-2
+
+- **Community Fish Detector** (WildHackers)  
+  https://github.com/WildHackers/community-fish-detector  
+  Model uses Ultralytics YOLO (AGPL-3.0)
 
 These components are used under their respective licenses.  
-WildTrack itself is licensed under the MIT License (see LICENSE).
+WildTrack itself is licensed under the MIT License (see [LICENSE](LICENSE) file).
