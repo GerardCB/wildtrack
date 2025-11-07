@@ -10,13 +10,14 @@ Makes it easy to:
 from typing import Dict, Type, Any
 from .base import Detector
 from .megadetector import MegaDetectorV5
+from .community_fish_detector import CommunityFishDetector
 
 
 # Registry structure: name -> {class, description, metadata}
 DETECTOR_REGISTRY: Dict[str, Dict[str, Any]] = {
     "megadetector-v5": {
         "class": MegaDetectorV5,
-        "description": "MegaDetector v5 - General wildlife detector",
+        "description": "General wildlife detector for trained on camera trap images",
         "source": "https://github.com/agentmorris/MegaDetector",
         "categories": {
             1: "animal",
@@ -24,9 +25,14 @@ DETECTOR_REGISTRY: Dict[str, Dict[str, Any]] = {
             3: "vehicle"
         }
     },
-    # More detectors will be added here
-    # "community-fish": {...},
-    # "yolov8-wildlife": {...},
+    "community-fish": {
+        "class": CommunityFishDetector,
+        "description": "Fish detector trained on 1.9M+ images (freshwater, marine, lab)",
+        "source": "https://github.com/WildHackers/community-fish-detector",
+        "categories": {
+            1: "fish"
+        }
+    },
 }
 
 
@@ -46,14 +52,6 @@ def register_detector(
         description: Short description of the detector
         source: URL to paper or GitHub repo
         **metadata: Additional metadata (categories, etc.)
-    
-    Example:
-        register_detector(
-            name="community-fish",
-            detector_class=CommunityFishDetector,
-            description="Specialized underwater fish detector",
-            source="https://github.com/WildHackers/community-fish-detector"
-        )
     """
     if name in DETECTOR_REGISTRY:
         raise ValueError(f"Detector '{name}' already registered")
