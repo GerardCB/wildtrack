@@ -98,7 +98,6 @@ class SpeciesNetClassifier(Classifier):
             )
 
         print(f"Loading SpeciesNet {self.model_version}...")
-        print("(First run will download model weights ~500MB)")
 
         # Canonical model spec we control (the external lib may accept different names)
         model_spec = f"kaggle:google/speciesnet/pyTorch/{self.model_version}"
