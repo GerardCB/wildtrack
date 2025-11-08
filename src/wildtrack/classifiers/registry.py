@@ -9,11 +9,17 @@ Makes it easy to:
 
 from typing import Dict, Type, Any
 from .base import Classifier
+from .speciesnet import SpeciesNetClassifier
 
 
 # Registry structure: name -> {class, description, metadata}
 CLASSIFIER_REGISTRY: Dict[str, Dict[str, Any]] = {
-    # Classifiers will be added here as they are implemented
+    "speciesnet": {
+        "class": SpeciesNetClassifier,
+        "description": "Google SpeciesNet trained on 65M+ camera trap images (2000+ species)",
+        "source": "https://github.com/google/cameratrapai",
+        "notes": "Requires: pip install speciesnet"
+    },
 }
 
 
@@ -96,9 +102,6 @@ def list_classifiers(verbose: bool = False) -> None:
         
         if verbose and info.get('source'):
             print(f"    Source: {info['source']}")
-        
-        if verbose and info.get('species_count'):
-            print(f"    Species: {info['species_count']}")
         
         print()
 

@@ -12,6 +12,7 @@ Usage:
 """
 
 from .base import Classifier
+from .speciesnet import SpeciesNetClassifier
 from .registry import (
     get_classifier,
     list_classifiers,
@@ -22,6 +23,7 @@ from .registry import (
 
 __all__ = [
     "Classifier",
+    "SpeciesNetClassifier",
     "get_classifier",
     "list_classifiers",
     "register_classifier",
