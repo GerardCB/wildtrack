@@ -1,5 +1,8 @@
 # 🐾 WildTrack
 
+![Version](https://img.shields.io/badge/version-0.3.0-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
+
 **WildTrack** is an open-source pipeline for wildlife detection, segmentation, and tracking in videos.
 It combines your choice of wildlife detection models with [SAM 2](https://github.com/facebookresearch/sam2) into a unified incremental workflow that automatically finds, segments, and follows individual animals across frames — even with camera movement, occlusions, or multiple individuals.
 
@@ -17,6 +20,7 @@ It combines your choice of wildlife detection models with [SAM 2](https://github
 * **High-Quality Segmentation** — SAM2-powered masks for precise individual tracking
 * **Hardware Optimized** — supports CUDA, MPS, and CPU out of the box
 * **Simple CLI** — process videos with a single command
+
 ---
 
 ## 🚀 Quickstart
@@ -75,7 +79,7 @@ wildtrack -v video.mp4 --detector megadetector-v5 --visualize fast
 | Detector | Best For | Notes |
 |----------|----------|-------|
 | `megadetector-v5` | Terrestrial wildlife, camera traps | Default detector |
-| `community-fish` | Underwater footage, marine life | Requires to [pip install ultralytics](https://pypi.org/project/ultralytics/) |
+| `community-fish` | Underwater footage, marine life | Requires [ultralytics](https://pypi.org/project/ultralytics/) |
 
 ### Examples
 
