@@ -259,7 +259,10 @@ def run_incremental(
 
         masks_by_obj = accumulated.get(dec_idx, {})
         assigned_track_ids, new_indices = assign_boxes_to_tracks(
-            boxes_xyxy, masks_by_obj, iou_threshold=overlap_iou_threshold
+            boxes_xyxy, 
+            masks_by_obj, 
+            iou_threshold=overlap_iou_threshold,
+            target_hw=(H, W)
         )
 
         num_new = len(new_indices)
@@ -364,6 +367,7 @@ def run_incremental(
         used_classifier_helper = False
         mapping = None
 
+        # Prefer a direct helper if your classifier exposes it
         if hasattr(classifier, "classify_crops_folder"):
             try:
                 mapping = classifier.classify_crops_folder(str(crops_dir))
@@ -373,9 +377,9 @@ def run_incremental(
                 mapping = None
 
         if mapping is None:
-            # Use a TEMP FILE for predictions and delete it afterwards
-            with tempfile.NamedTemporaryFile(prefix="speciesnet_preds_", suffix=".json", delete=False) as tf:
-                preds_path = Path(tf.name)
+            # Do not pre-create the JSON file; SpeciesNet will try to "resume" it and crash if empty.
+            tmp_pred_dir = Path(tempfile.mkdtemp(prefix="speciesnet_predjson_"))
+            preds_path = tmp_pred_dir / "predictions.json"
 
             cmd = [
                 sys.executable, "-m", "speciesnet.scripts.run_model",
@@ -390,17 +394,24 @@ def run_incremental(
                 cmd += ["--admin1_region", str(admin1)]
 
             try:
-                subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                # Parse then delete
+                res = subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                # Parse output JSON (now that SpeciesNet created it)
                 try:
                     with open(preds_path, "r") as f:
                         data = json.load(f)
                 finally:
+                    # Clean up JSON and its temp directory
                     try:
-                        preds_path.unlink(missing_ok=True)
+                        if preds_path.exists():
+                            preds_path.unlink()
+                    except Exception:
+                        pass
+                    try:
+                        shutil.rmtree(tmp_pred_dir, ignore_errors=True)
                     except Exception:
                         pass
 
+                # Build {abs_path -> (species, score)} mapping
                 images = data.get("images") or data.get("predictions") or []
                 mapping = {}
                 for item in images:
@@ -413,6 +424,7 @@ def run_incremental(
                     )
                     if fp and not os.path.isabs(fp):
                         fp = str((crops_dir / Path(fp).name).resolve())
+
                     species, score = None, None
                     if "prediction" in item and "prediction_score" in item:
                         species = item["prediction"]
@@ -423,18 +435,33 @@ def run_incremental(
                         scores  = cls.get("scores") or []
                         if classes and scores:
                             species, score = classes[0], float(scores[0])
+
                     if fp and (species is not None) and (score is not None):
                         mapping[Path(fp).resolve().as_posix()] = (species, score)
+
             except subprocess.CalledProcessError as e:
                 print("  Warning: SpeciesNet CLI failed:")
                 try:
-                    if e.stdout: print(e.stdout.decode(errors="ignore"))
-                    if e.stderr: print(e.stderr.decode(errors="ignore"))
+                    if e.stdout:
+                        print(e.stdout.decode(errors="ignore"))
+                    if e.stderr:
+                        print(e.stderr.decode(errors="ignore"))
+                except Exception:
+                    pass
+                # Best-effort cleanup if JSON/dir exist
+                try:
+                    if 'preds_path' in locals() and preds_path.exists():
+                        preds_path.unlink()
+                except Exception:
+                    pass
+                try:
+                    if 'tmp_pred_dir' in locals():
+                        shutil.rmtree(tmp_pred_dir, ignore_errors=True)
                 except Exception:
                     pass
                 mapping = {}
 
-        # Aggregate best per FINAL track id
+        # Aggregate best per final track id (ignore non-animal labels)
         best_animal_per_final: Dict[int, Tuple[str, float]] = {}
         best_any_per_final: Dict[int, Tuple[str, float]] = {}
 
@@ -466,7 +493,8 @@ def run_incremental(
                 else:
                     track_species[tid] = ("unknown", sc)
             else:
-                sp, sc = best_any_per_final.get(tid, ("unknown", 0.0))
+                # Only non-animal seen -> keep unknown with the best (non-animal) score
+                _, sc = best_any_per_final.get(tid, ("unknown", 0.0))
                 track_species[tid] = ("unknown", sc)
 
         # Clean up crops directory now that we're done
@@ -497,7 +525,6 @@ def run_incremental(
             vis_path,
             use_decimated=(viz_mode == "fast"),
             jpeg_folder=jpeg_folder if viz_mode == "fast" else None,
-            track_species=track_species
         )
         print(f"Saved visualization: {vis_path}")
 
