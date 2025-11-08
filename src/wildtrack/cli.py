@@ -10,6 +10,7 @@ import sys
 from .devices import pick_device
 from .utils.video import export_video_to_jpeg_folder
 from .detectors import get_detector, list_detectors, get_available_detectors
+from .classifiers import get_classifier, list_classifiers
 from .segmenters.sam2_segmenter import SAM2Segmenter
 from .pipeline.incremental import run_incremental
 
@@ -25,6 +26,11 @@ def main():
     ap.add_argument(
         "--list-detectors", action="store_true",
         help="List all available detectors and exit"
+    )
+    # Special command: list classifiers
+    ap.add_argument(
+    "--list-classifiers", action="store_true",
+    help="List available classifiers and exit"
     )
 
     # ==================== INPUT/OUTPUT ====================
@@ -79,6 +85,29 @@ def main():
         help="Skip SAM2 post-processing step (use if encountering extension errors)"
     )
 
+    # ==================== CLASSIFICATION ====================
+    classify_group = ap.add_argument_group('Species Classification')
+    classify_group.add_argument(
+        "--classify", action="store_true",
+        help="Enable species classification for detected animals"
+    )
+    classify_group.add_argument(
+        "--classifier", type=str, default="speciesnet",
+        help="Classifier to use (default: speciesnet). Run --list-classifiers for options."
+    )
+    classify_group.add_argument(
+        "--species-confidence", type=float, default=0.5,
+        help="Minimum confidence for species predictions (default: 0.5)"
+    )
+    classify_group.add_argument(
+        "--country", type=str, default=None,
+        help="ISO 3166-1 alpha-3 country code for geographic filtering (e.g., USA, GBR, KEN)"
+    )
+    classify_group.add_argument(
+        "--admin1-region", type=str, default=None,
+        help="State/region code for geographic filtering (USA only, e.g., CA, NY)"
+    )
+
     # ==================== OUTPUT/VISUALIZATION ====================
     output_group = ap.add_argument_group('Output & Visualization')
     output_group.add_argument(
@@ -109,6 +138,10 @@ def main():
     if args.list_detectors:
         list_detectors(verbose=True)
         sys.exit(0)
+    # Handle --list-classifiers command
+    if args.list_classifiers:
+        list_classifiers(verbose=True)
+        sys.exit(0)
 
     # Validate required arguments
     if not args.video:
@@ -120,7 +153,7 @@ def main():
     debug_vis = args.visualize != "none"
     viz_mode = "original" if args.visualize == "high-quality" else "fast"
 
-    # 1) Export decimated JPEGs
+    # Export decimated JPEGs
     tmp_dir = tempfile.mkdtemp(prefix="sam2_jpegs_")
     jpeg_folder, _ = export_video_to_jpeg_folder(
         args.video,
@@ -131,15 +164,28 @@ def main():
     )
 
     try:
-        # 2) Initialize detector from registry
+        # Initialize detector from registry
         print(f"Loading detector: {args.detector}")
         detector = get_detector(
             args.detector,
             conf_thresh=args.confidence,
             animals_only=True  # Can be made configurable later
         )
+
+        # Initialize classifier if enabled
+        classifier = None
+        if args.classify:            
+            print(f"Loading classifier: {args.classifier}")
+            classifier_kwargs = {
+                "conf_thresh": args.species_confidence,
+            }
+            if args.country:
+                classifier_kwargs["country"] = args.country
+            if args.admin1_region:
+                classifier_kwargs["admin1_region"] = args.admin1_region
+            classifier = get_classifier(args.classifier, **classifier_kwargs)
         
-        # 3) Initialize segmenter
+        # Initialize segmenter
         segmenter = SAM2Segmenter(
             jpeg_folder=jpeg_folder,
             device=device,
@@ -147,7 +193,7 @@ def main():
             apply_post=not args.skip_postprocessing,
         )
 
-        # 4) Run pipeline
+        # Run pipeline
         run_incremental(
             video_path=args.video,
             detector=detector,
@@ -163,6 +209,8 @@ def main():
             merge_min_frames=args.merge_min_overlap,
             jpeg_folder=jpeg_folder,
             viz_mode=viz_mode,
+            classifier=classifier,
+            species_conf_threshold=args.species_confidence
         )
     finally:
         shutil.rmtree(tmp_dir, ignore_errors=True)
