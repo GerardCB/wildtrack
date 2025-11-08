@@ -187,22 +187,19 @@ def filter_new_boxes(
 def assign_boxes_to_tracks(
     boxes_xyxy: np.ndarray,
     masks_by_obj: Dict[int, np.ndarray],
-    iou_threshold: float = 0.3
+    iou_threshold: float = 0.3,
+    target_hw: Tuple[int, int] | None = None,  # FIXED: Add resolution parameter
 ) -> Tuple[List[int], List[int]]:
     """
     For each detection box, either assign it to an EXISTING track (by IoU with that
-    track's current mask bbox on this frame), or mark it as NEW (return its index in
+    track's current mask on this frame), or mark it as NEW (return its index in
     `new_indices`).
 
-    This is useful when you want to:
-      - classify ALL detections (existing + new) to harvest the best label over time
-      - propagate SAM2 only for NEW detections
-
     Args:
-        boxes_xyxy: (N,4) detections on the current (decimated) frame
-        masks_by_obj: {obj_id: mask} mapping for the same frame
-        iou_threshold: min IoU between detection box and the track's mask bbox
-                       to consider it the same object
+        boxes_xyxy: (N,4) detections on the current frame IN FULL RESOLUTION
+        masks_by_obj: {obj_id: mask} mapping IN SAM2 DECIMATED RESOLUTION
+        iou_threshold: min IoU between detection box and the track's mask
+        target_hw: (H, W) = target resolution to resize masks to (CRITICAL!)
 
     Returns:
         assigned_track_ids: list of length N; for each detection i:
@@ -210,12 +207,10 @@ def assign_boxes_to_tracks(
             - if NEW (no match) -> -1
         new_indices: indices i in boxes_xyxy that were marked NEW (-1)
     """
-    # Precompute bbox per existing mask
-    obj_bbox: Dict[int, np.ndarray] = {}
+    # FIXED: Resize masks to match detection frame resolution
+    obj_mask: Dict[int, np.ndarray] = {}
     for oid, m in masks_by_obj.items():
-        bb = mask_to_bbox(mask_to_binary(m))
-        if bb is not None:
-            obj_bbox[int(oid)] = bb
+        obj_mask[int(oid)] = mask_to_binary(m, target_hw=target_hw)
 
     assigned: List[int] = []
     new_idxs: List[int] = []
@@ -223,10 +218,13 @@ def assign_boxes_to_tracks(
     for i, det in enumerate(boxes_xyxy):
         det = det.astype(np.float32)
         best_iou, best_oid = 0.0, None
-        for oid, mbb in obj_bbox.items():
-            iou = bbox_iou_xyxy(det, mbb)
+        
+        # Compare box against masks (now in same coordinate space!)
+        for oid, mask in obj_mask.items():
+            iou = compute_box_mask_iou(det, mask)
             if iou > best_iou:
                 best_iou, best_oid = iou, oid
+        
         if best_oid is not None and best_iou >= iou_threshold:
             assigned.append(int(best_oid))
         else:
