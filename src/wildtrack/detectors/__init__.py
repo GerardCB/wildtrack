@@ -9,7 +9,6 @@ Usage:
     
     # Create a detector
     detector = get_detector("megadetector-v5", conf_thresh=0.4)
-    detector = get_detector("community-fish", conf_thresh=0.3)
 """
 
 from .base import Detector
