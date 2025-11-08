@@ -104,7 +104,7 @@ def merge_duplicate_tracks(sam2_outputs, iou_threshold=0.3, min_overlap_frames=3
 
     return merged_outputs, merge_map
 
-def save_results(video_path, outputs, detection_summary, merge_map, frame_stride, max_side, out_dir):
+def save_results(video_path, outputs, detection_summary, merge_map, frame_stride, max_side, out_dir, track_species=None):
     clip = Path(video_path).stem
     out_dir = Path(out_dir); out_dir.mkdir(parents=True, exist_ok=True)
     fps, frame_count, (W,H) = get_video_meta(video_path)
@@ -131,6 +131,18 @@ def save_results(video_path, outputs, detection_summary, merge_map, frame_stride
         "merges_applied": len(merge_map),
         "merge_map": {int(k): int(v) for k,v in merge_map.items()} if merge_map else {},
     }
+
+    if track_species:
+        tracks_info = []
+        for track_id in uniq:
+            track_info = {"track_id": int(track_id)}
+            if track_id in track_species:
+                species, conf = track_species[track_id]
+                track_info["species"] = species
+                track_info["species_confidence"] = float(conf)
+            tracks_info.append(track_info)
+        meta["tracks"] = tracks_info
+
     meta_path = out_dir / f"{clip}_metadata.json"
     with open(meta_path, "w") as f: json.dump(meta, f, indent=2)
     return masks_path, meta_path
@@ -148,7 +160,9 @@ def run_incremental(video_path: str,
                     merge_iou_threshold=0.4,
                     merge_min_frames=3,
                     jpeg_folder: str | None = None,
-                    viz_mode: Literal["fast","original"] = "fast"):
+                    viz_mode: Literal["fast","original"] = "fast",
+                    classifier=None,
+                    species_conf_threshold: float = 0.5):
     """
     Run the incremental detection + segmentation + tracking pipeline.
     """
@@ -164,6 +178,7 @@ def run_incremental(video_path: str,
     accumulated: Dict[int, Dict[int, np.ndarray]] = defaultdict(dict)  # frame_idx -> {obj_id: mask}
     next_obj_id = 0
     detection_summary: List[Dict[str,Any]] = []
+    track_species = {}  # track_id -> (species, confidence)
 
     safe_last = max(0, (total_frames - 1))
     detection_frames = list(range(0, safe_last, detection_stride))
@@ -190,6 +205,22 @@ def run_incremental(video_path: str,
         if new_boxes.shape[0]==0:
             print("  All animals already have masks.\n")
             continue
+
+        if classifier is not None:
+            print(f"  Classifying {new_boxes.shape[0]} new animal(s)...")
+            for i, bbox in enumerate(new_boxes):
+                future_track_id = next_obj_id + i
+                try:
+                    species, conf = classifier.classify(frame, bbox)
+                    if conf >= species_conf_threshold:
+                        track_species[future_track_id] = (species, conf)
+                        print(f"    ID{future_track_id}: {species} ({conf:.1%})")
+                    else:
+                        track_species[future_track_id] = ("unknown", conf)
+                        print(f"    ID{future_track_id}: unknown (conf: {conf:.1%})")
+                except Exception as e:
+                    print(f"    ID{future_track_id}: classification failed ({e})")
+                    track_species[future_track_id] = ("error", 0.0)
 
         scale = 1.0
         if max_side:
@@ -245,7 +276,8 @@ def run_incremental(video_path: str,
         merge_map,
         frame_stride, 
         max_side, 
-        out_dir
+        out_dir,
+        track_species=track_species
     )
 
     if debug_vis:
@@ -258,8 +290,9 @@ def run_incremental(video_path: str,
             vis_path,
             use_decimated = (viz_mode == "fast"),
             jpeg_folder = jpeg_folder if viz_mode == "fast" else None,
+            track_species=track_species
         )
         print(f"Saved visualization: {vis_path}")
 
     print("Done.")
-    return outputs
+    return outputs, track_species

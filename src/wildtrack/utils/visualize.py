@@ -13,6 +13,7 @@ def visualize_result(
     use_decimated: bool = True,
     jpeg_folder: str | None = None,
     max_side: int | None = None,
+    track_species: dict | None = None,  # {track_id: (species, confidence)}
 ):
     """
     Render masks quickly.
@@ -30,6 +31,16 @@ def visualize_result(
         g = (oid * 57 + 23) % 196 + 60
         b = (oid * 31 + 89) % 196 + 60
         return int(b), int(g), int(r)
+    
+    # Label with species if available
+    def label_for(oid: int) -> str:
+        if track_species and oid in track_species:
+            species, conf = track_species[oid]
+            if species not in ["unknown", "error"]:
+                return f"ID{oid} - {species} ({conf:.0%})"
+            else:
+                return f"ID{oid}"
+        return f"ID{oid}"
 
     if use_decimated:
         assert jpeg_folder is not None, "jpeg_folder required with use_decimated=True"
@@ -91,8 +102,10 @@ def visualize_result(
 
                     ys, xs = np.where(mask)
                     if ys.size:
-                        y0 = int(ys.min()); x0 = int(xs.min())
-                        cv2.putText(frame_f, f"ID{int(oid)}", (x0, max(20, y0)),
+                        y0 = int(ys.min())
+                        x0 = int(xs.min())
+                        label = label_for(int(oid))
+                        cv2.putText(frame_f, label, (x0, max(20, y0)),
                                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255,255,255), 2, cv2.LINE_AA)
 
                 frame = np.clip(frame_f, 0, 255).astype(np.uint8)
@@ -150,8 +163,10 @@ def visualize_result(
 
                 ys, xs = np.where(mask)
                 if ys.size:
-                    y0 = int(ys.min()); x0 = int(xs.min())
-                    cv2.putText(frame_f, f"ID{int(oid)}", (x0, max(20, y0)),
+                    y0 = int(ys.min())
+                    x0 = int(xs.min())
+                    label = label_for(int(oid))
+                    cv2.putText(frame_f, label, (x0, max(20, y0)),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255,255,255), 2, cv2.LINE_AA)
 
             frame = np.clip(frame_f, 0, 255).astype(np.uint8)
