@@ -13,7 +13,6 @@ def visualize_result(
     use_decimated: bool = True,
     jpeg_folder: str | None = None,
     max_side: int | None = None,
-    track_species: dict | None = None,  # {track_id: (species, confidence)}
 ):
     """
     Render masks quickly.
@@ -32,14 +31,8 @@ def visualize_result(
         b = (oid * 31 + 89) % 196 + 60
         return int(b), int(g), int(r)
     
-    # Label with species if available
+    # Simple ID label (species info is in metadata JSON)
     def label_for(oid: int) -> str:
-        if track_species and oid in track_species:
-            species, conf = track_species[oid]
-            if species not in ["unknown", "error"]:
-                return f"ID{oid} - {species} ({conf:.0%})"
-            else:
-                return f"ID{oid}"
         return f"ID{oid}"
 
     if use_decimated:
