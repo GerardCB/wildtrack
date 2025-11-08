@@ -206,20 +206,34 @@ def run_incremental(video_path: str,
             print("  All animals already have masks.\n")
             continue
 
-        if classifier is not None:
-            print(f"  Classifying {new_boxes.shape[0]} new animal(s)...")
-            for i, bbox in enumerate(new_boxes):
-                future_track_id = next_obj_id + i
-                try:
-                    species, conf = classifier.classify(frame, bbox)
+        if classifier is not None and new_boxes.shape[0] > 0:
+            print(f"  Batch classifying {new_boxes.shape[0]} new animal(s)...")
+            try:
+                # Use batch classification method if available
+                if hasattr(classifier, 'classify_batch'):
+                    batch_results = classifier.classify_batch(frame, new_boxes)
+                else:
+                    # Fallback to individual classification
+                    batch_results = []
+                    for bbox in new_boxes:
+                        species, conf = classifier.classify(frame, bbox)
+                        batch_results.append((species, conf))
+                
+                # Assign results to track IDs
+                for i, (species, conf) in enumerate(batch_results):
+                    future_track_id = next_obj_id + i
                     if conf >= species_conf_threshold:
                         track_species[future_track_id] = (species, conf)
                         print(f"    ID{future_track_id}: {species} ({conf:.1%})")
                     else:
                         track_species[future_track_id] = ("unknown", conf)
                         print(f"    ID{future_track_id}: unknown (conf: {conf:.1%})")
-                except Exception as e:
-                    print(f"    ID{future_track_id}: classification failed ({e})")
+                        
+            except Exception as e:
+                print(f"  Classification failed: {e}")
+                # Mark all new tracks as classification errors
+                for i in range(new_boxes.shape[0]):
+                    future_track_id = next_obj_id + i
                     track_species[future_track_id] = ("error", 0.0)
 
         scale = 1.0
