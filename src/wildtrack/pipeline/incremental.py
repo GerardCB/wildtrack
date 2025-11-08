@@ -169,7 +169,7 @@ def save_results(
 # ---------------------------- Species label helpers -------------------------- #
 
 _NON_ANIMAL_TOKENS = {
-    "blank", "empty", "unknown", "no animal", "none", "neg", "negative"
+    "blank", "empty", "unknown", "no animal", "none", "neg", "negative", "no cv result"
 }
 
 def _is_animal_label(label: str) -> bool:
