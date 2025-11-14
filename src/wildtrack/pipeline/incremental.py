@@ -203,9 +203,13 @@ def run_incremental(video_path: str,
 
         # Overwrite mask per (frame, object)
         for d in sam2_out:
-            f = d["frame_idx"]
+            f = int(d["frame_idx"])
             for m, oid in zip(d["masks"], d["object_ids"]):
-                accumulated[f][int(oid)] = m
+                # Ensure CPU uint8 binary mask at original resolution
+                mask_np = mask_to_binary(m, target_hw=(H, W))
+                if mask_np.dtype != np.uint8:
+                    mask_np = mask_np.astype(np.uint8)
+                accumulated[f][int(oid)] = mask_np
 
         next_obj_id += new_boxes.shape[0]
         detection_summary.append({
